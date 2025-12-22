@@ -44,7 +44,7 @@ data:
           hostname: language-detector-predictor
           port: 80
         chunker_id: sentence
-        default_threshold: 0.5
+        default_threshold: 0.7
     tls:
       external_llm:
         insecure: true

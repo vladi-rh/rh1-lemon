@@ -106,8 +106,16 @@ class MetricsCollector:
 # Global metrics instance
 metrics = MetricsCollector()
 
+MAX_INPUT_CHARS = 100
+
 def stream_chat(message, _history):
     """Stream chat responses from the guardrails API."""
+
+    # Check message length before sending to backend
+    if len(message) > MAX_INPUT_CHARS:
+        print(f"[DEBUG] Message too long: {len(message)} chars (max {MAX_INPUT_CHARS})")
+        yield "Your message is too long! Please keep your question short and simple — ideally under 100 characters (about 1-2 short sentences). For example: 'How do I make lemon cake?' or 'What are the benefits of lemons?'"
+        return
 
     # Increment request counter
     metrics.increment_request()
@@ -192,6 +200,7 @@ def stream_chat(message, _history):
             {"role": "user", "content": message}
         ],
         "stream": True,
+        "max_tokens": 200,
         "detectors": {
             "input": {
                 "hap": {},
@@ -236,6 +245,7 @@ def stream_chat(message, _history):
         print(f"[DEBUG] Response headers: {dict(response.headers)}")
 
         line_count = 0
+        is_error_event = False
         for line in response.iter_lines():
             line_count += 1
             if not line:
@@ -245,6 +255,11 @@ def stream_chat(message, _history):
             line_text = line.decode("utf-8")
             print(f"[DEBUG] Line {line_count}: {line_text}")  # Print full line
 
+            # Check for error event
+            if line_text == "event: error":
+                is_error_event = True
+                continue
+
             # Skip empty lines and done marker
             if line_text == "data: [DONE]":
                 print(f"[DEBUG] Stream complete")
@@ -252,6 +267,19 @@ def stream_chat(message, _history):
 
             # Parse SSE data
             if line_text.startswith("data: "):
+                # Handle error events (e.g., input too long)
+                if is_error_event:
+                    try:
+                        error_data = json.loads(line_text[6:])
+                        error_details = error_data.get("details", "")
+                        if "max_tokens" in error_details or "too large" in error_details:
+                            print(f"[DEBUG] Input too long error: {error_details}")
+                            yield "Your message is too long! Please keep your question short and simple — ideally under 100 characters (about 1-2 short sentences). For example: 'How do I make a lemon cake?' or 'What are the benefits of lemons?'"
+                            return
+                    except json.JSONDecodeError:
+                        pass
+                    is_error_event = False
+                    continue
                 json_str = line_text[6:]
 
                 try:
@@ -341,9 +369,15 @@ def stream_chat(message, _history):
         yield f"Error: {str(e)}"
 
 # Create the Gradio interface
-with gr.Blocks(title="Lemonade Stand Chat", theme=gr.themes.Soft()) as demo:
+with gr.Blocks(
+    title="Lemonade Stand Chat",
+    analytics_enabled=False
+) as demo:
+    # Hide footer
+    gr.HTML("<style>footer { display: none !important; }</style>")
+
     # Header
-    gr.HTML('<div style="background-color:#EE0000; color:white; padding:15px; font-size:20px; font-weight:bold; text-align:center; border-radius:8px; margin-bottom:10px;">Welcome to digital lemonade stand!</div>')
+    gr.HTML('<div style="background-color:#EE0000; color:white; padding:15px; font-size:20px; font-weight:bold; text-align:center; border-radius:8px; margin-bottom:10px;">Welcome to digital lemonade stand! 🍋</div>')
 
     # Chat interface
     chatbot = gr.ChatInterface(
@@ -351,7 +385,7 @@ with gr.Blocks(title="Lemonade Stand Chat", theme=gr.themes.Soft()) as demo:
         examples=[
             "Tell me about lemons",
             "What are the health benefits of lemons?",
-            "How do I make lemonade?",
+            "What type of lemon should I use to make a lemon cake?",
         ],
         cache_examples=False,
     )
