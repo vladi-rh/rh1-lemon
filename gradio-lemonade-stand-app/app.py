@@ -1,13 +1,13 @@
 import gradio as gr
-import requests
+import httpx
 import json
 import os
-import time
+import asyncio
 from threading import Lock
-import urllib3
+import warnings
 
 # Suppress SSL warnings when verify=False
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 # Configuration from environment variables
 ORCHESTRATOR_HOST = os.getenv("GUARDRAILS_ORCHESTRATOR_SERVICE_SERVICE_HOST", "localhost")
@@ -108,8 +108,8 @@ metrics = MetricsCollector()
 
 MAX_INPUT_CHARS = 100
 
-def stream_chat(message, _history):
-    """Stream chat responses from the guardrails API."""
+async def stream_chat(message, _history):
+    """Stream chat responses from the guardrails API (async)."""
 
     # Check message length before sending to backend
     if len(message) > MAX_INPUT_CHARS:
@@ -225,165 +225,164 @@ def stream_chat(message, _history):
         headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
 
     try:
-        # Make streaming request
-        print(f"[DEBUG] Sending request...")
-        response = requests.post(
-            API_URL,
-            json=payload,
-            headers=headers,
-            stream=True,
-            timeout=120,
-            verify=False
-        )
-        print(f"[DEBUG] Response status: {response.status_code}")
-        response.raise_for_status()
+        # Make async streaming request
+        print(f"[DEBUG] Sending async request...")
+        async with httpx.AsyncClient(verify=False, timeout=120.0) as client:
+            async with client.stream(
+                "POST",
+                API_URL,
+                json=payload,
+                headers=headers,
+            ) as response:
+                print(f"[DEBUG] Response status: {response.status_code}")
+                response.raise_for_status()
 
-        full_response = ""
+                full_response = ""
 
-        # Process SSE stream
-        print(f"[DEBUG] Processing SSE stream...")
-        print(f"[DEBUG] Response headers: {dict(response.headers)}")
+                # Process SSE stream
+                print(f"[DEBUG] Processing SSE stream...")
+                print(f"[DEBUG] Response headers: {dict(response.headers)}")
 
-        line_count = 0
-        is_error_event = False
-        for line in response.iter_lines():
-            line_count += 1
-            if not line:
-                print(f"[DEBUG] Empty line {line_count}")
-                continue
+                line_count = 0
+                is_error_event = False
+                async for line in response.aiter_lines():
+                    line_count += 1
+                    if not line:
+                        print(f"[DEBUG] Empty line {line_count}")
+                        continue
 
-            line_text = line.decode("utf-8")
-            print(f"[DEBUG] Line {line_count}: {line_text}")  # Print full line
+                    line_text = line
+                    print(f"[DEBUG] Line {line_count}: {line_text}")
 
-            # Check for error event
-            if line_text == "event: error":
-                is_error_event = True
-                continue
+                    # Check for error event
+                    if line_text == "event: error":
+                        is_error_event = True
+                        continue
 
-            # Skip empty lines and done marker
-            if line_text == "data: [DONE]":
-                print(f"[DEBUG] Stream complete")
-                break
+                    # Skip empty lines and done marker
+                    if line_text == "data: [DONE]":
+                        print(f"[DEBUG] Stream complete")
+                        break
 
-            # Parse SSE data
-            if line_text.startswith("data: "):
-                # Handle error events (e.g., input too long)
-                if is_error_event:
-                    try:
-                        error_data = json.loads(line_text[6:])
-                        error_details = error_data.get("details", "")
-                        if "max_tokens" in error_details or "too large" in error_details:
-                            print(f"[DEBUG] Input too long error: {error_details}")
-                            yield "Your message is too long! Please keep your question short and simple — ideally under 100 characters (about 1-2 short sentences). For example: 'How do I make a lemon cake?' or 'What are the benefits of lemons?'"
-                            return
-                    except json.JSONDecodeError:
-                        pass
-                    is_error_event = False
-                    continue
-                json_str = line_text[6:]
+                    # Parse SSE data
+                    if line_text.startswith("data: "):
+                        # Handle error events (e.g., input too long)
+                        if is_error_event:
+                            try:
+                                error_data = json.loads(line_text[6:])
+                                error_details = error_data.get("details", "")
+                                if "max_tokens" in error_details or "too large" in error_details:
+                                    print(f"[DEBUG] Input too long error: {error_details}")
+                                    yield "Your message is too long! Please keep your question short and simple — ideally under 100 characters (about 1-2 short sentences). For example: 'How do I make a lemon cake?' or 'What are the benefits of lemons?'"
+                                    return
+                            except json.JSONDecodeError:
+                                pass
+                            is_error_event = False
+                            continue
+                        json_str = line_text[6:]
 
-                try:
-                    chunk = json.loads(json_str)
+                        try:
+                            chunk = json.loads(json_str)
 
-                    warnings = chunk.get("warnings", [])
-                    detections = chunk.get("detections", {})
-                    choices = chunk.get("choices", [])
+                            warnings_list = chunk.get("warnings", [])
+                            detections = chunk.get("detections", {})
+                            choices = chunk.get("choices", [])
 
-                    # Process detections for metrics (always, regardless of blocking)
-                    input_detections = detections.get("input", [])
-                    for det in input_detections:
-                        if isinstance(det, dict):
-                            metrics.add_detections([det], "input")
-                    output_detections = detections.get("output", [])
-                    for det in output_detections:
-                        if isinstance(det, dict):
-                            metrics.add_detections([det], "output")
-
-                    # User-friendly messages for each detector type
-                    DETECTOR_MESSAGES = {
-                        "hap": "Your message was flagged for containing potentially harmful or inappropriate content.",
-                        "prompt_injection": "Your message appears to contain instructions that try to override the system rules.",
-                        "regex_competitor": "I can only discuss lemons! Other fruits and off-topic subjects are not allowed.",
-                        "language_detection_input": "I can only communicate in English. Please rephrase your message in English.",
-                        "language_detection_output": "I can only answer in English.",
-                    }
-
-                    # Check for warnings and determine if we should block
-                    should_block = False
-                    detected_types = []
-
-                    for warning in warnings:
-                        warning_type = warning.get("type", "")
-                        if warning_type in ["UNSUITABLE_INPUT", "UNSUITABLE_OUTPUT"]:
-                            print(f"[DEBUG] Warning: {warning_type} - {warning.get('message', '')}")
-
-                            # Log which detectors triggered
-                            direction = "input" if warning_type == "UNSUITABLE_INPUT" else "output"
-                            direction_detections = detections.get(direction, [])
-                            for det in direction_detections:
+                            # Process detections for metrics (always, regardless of blocking)
+                            input_detections = detections.get("input", [])
+                            for det in input_detections:
                                 if isinstance(det, dict):
-                                    for result in det.get("results", []):
-                                        detector_id = result.get("detector_id", "")
-                                        score = result.get("score", 0)
-                                        print(f"[DEBUG] Detector: {detector_id}, Score: {score:.2f}")
+                                    metrics.add_detections([det], "input")
+                            output_detections = detections.get("output", [])
+                            for det in output_detections:
+                                if isinstance(det, dict):
+                                    metrics.add_detections([det], "output")
 
-                                        # Block on language_detection for both INPUT and OUTPUT (non-English)
-                                        if detector_id == "language_detection" and score > 0.8:
-                                            should_block = True
-                                            # Track with direction to show appropriate message
-                                            lang_key = f"language_detection_{direction}"
-                                            if lang_key not in detected_types:
-                                                detected_types.append(lang_key)
+                            # User-friendly messages for each detector type
+                            DETECTOR_MESSAGES = {
+                                "hap": "Your message was flagged for containing potentially harmful or inappropriate content.",
+                                "prompt_injection": "Your message appears to contain instructions that try to override the system rules.",
+                                "regex_competitor": "I can only discuss lemons! Other fruits and off-topic subjects are not allowed.",
+                                "language_detection_input": "I can only communicate in English. Please rephrase your message in English.",
+                                "language_detection_output": "I can only answer in English.",
+                            }
 
-                                        # Block on other critical detectors for both input and output
-                                        if detector_id in ["hap", "prompt_injection", "regex_competitor"]:
-                                            should_block = True
-                                            if detector_id not in detected_types:
-                                                detected_types.append(detector_id)
+                            # Check for warnings and determine if we should block
+                            should_block = False
+                            detected_types = []
 
-                    # Block if choices is empty with warning OR if critical detector fired
-                    if (not choices and warnings) or should_block:
-                        print(f"[DEBUG] Blocking due to: {detected_types or 'API returned empty choices'}")
-                        # Build user-friendly message based on detected types
-                        if detected_types:
-                            reasons = [DETECTOR_MESSAGES.get(dt, f"Detection: {dt}") for dt in detected_types]
-                            user_message = " ".join(reasons) + " Is there anything else I can help you with?"
-                        else:
-                            user_message = "I'm sorry, I can't help with that. Is there anything else I can help you with?"
-                        yield user_message
-                        return
+                            for warning in warnings_list:
+                                warning_type = warning.get("type", "")
+                                if warning_type in ["UNSUITABLE_INPUT", "UNSUITABLE_OUTPUT"]:
+                                    print(f"[DEBUG] Warning: {warning_type} - {warning.get('message', '')}")
 
-                    # Extract content from delta
-                    if choices:
-                        delta = choices[0].get("delta", {})
-                        content = delta.get("content", "")
-                        if content:
-                            print(f"[DEBUG] Content chunk: '{content}'")
-                            # Fake streaming: yield character by character
-                            for char in content:
-                                full_response += char
-                                yield full_response
-                                time.sleep(0.005)  # 5ms delay for fast typing effect
-                            # Add newline after each chunk for formatting
-                            full_response += "\n"
-                            yield full_response
+                                    # Log which detectors triggered
+                                    direction = "input" if warning_type == "UNSUITABLE_INPUT" else "output"
+                                    direction_detections = detections.get(direction, [])
+                                    for det in direction_detections:
+                                        if isinstance(det, dict):
+                                            for result in det.get("results", []):
+                                                detector_id = result.get("detector_id", "")
+                                                score = result.get("score", 0)
+                                                print(f"[DEBUG] Detector: {detector_id}, Score: {score:.2f}")
 
-                except json.JSONDecodeError:
-                    continue
+                                                # Block on language_detection for both INPUT and OUTPUT (non-English)
+                                                if detector_id == "language_detection" and score > 0.8:
+                                                    should_block = True
+                                                    lang_key = f"language_detection_{direction}"
+                                                    if lang_key not in detected_types:
+                                                        detected_types.append(lang_key)
 
-        print(f"[DEBUG] Stream loop finished. Total lines: {line_count}")
+                                                # Block on other critical detectors for both input and output
+                                                if detector_id in ["hap", "prompt_injection", "regex_competitor"]:
+                                                    should_block = True
+                                                    if detector_id not in detected_types:
+                                                        detected_types.append(detector_id)
 
-        # If no response was generated
-        if not full_response:
-            yield "No response received from the model."
+                            # Block if choices is empty with warning OR if critical detector fired
+                            if (not choices and warnings_list) or should_block:
+                                print(f"[DEBUG] Blocking due to: {detected_types or 'API returned empty choices'}")
+                                if detected_types:
+                                    reasons = [DETECTOR_MESSAGES.get(dt, f"Detection: {dt}") for dt in detected_types]
+                                    user_message = " ".join(reasons) + " Is there anything else I can help you with?"
+                                else:
+                                    user_message = "I'm sorry, I can't help with that. Is there anything else I can help you with?"
+                                yield user_message
+                                return
 
-    except requests.exceptions.ConnectionError as e:
+                            # Extract content from delta
+                            if choices:
+                                delta = choices[0].get("delta", {})
+                                content = delta.get("content", "")
+                                if content:
+                                    print(f"[DEBUG] Content chunk: '{content}'")
+                                    # Stream content character by character
+                                    for char in content:
+                                        full_response += char
+                                        yield full_response
+                                        await asyncio.sleep(0.005)  # 5ms delay for typing effect
+                                    full_response += "\n"
+                                    yield full_response
+
+                        except json.JSONDecodeError:
+                            continue
+
+                print(f"[DEBUG] Stream loop finished. Total lines: {line_count}")
+
+                # If no response was generated
+                if not full_response:
+                    yield "No response received from the model."
+
+    except httpx.ConnectError as e:
         print(f"[DEBUG] Connection error: {e}")
         yield f"Error: Could not connect to the API at {API_URL}"
-    except requests.exceptions.Timeout:
+    except httpx.TimeoutException:
         print(f"[DEBUG] Request timed out")
         yield "Error: Request timed out"
-    except requests.exceptions.RequestException as e:
+    except httpx.HTTPStatusError as e:
+        print(f"[DEBUG] HTTP error: {e}")
+        yield f"Error: {str(e)}"
+    except Exception as e:
         print(f"[DEBUG] Request error: {e}")
         yield f"Error: {str(e)}"
 

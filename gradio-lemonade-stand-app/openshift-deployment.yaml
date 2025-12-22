@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
         - name: lemonade-stand
-          image: quay.io/ckavili/lemon-gradio:0.0.5
+          image: quay.io/ckavili/lemon-gradio:0.0.6
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -166,5 +166,4 @@ spec:
   endpoints:
     - port: http
       path: /metrics
-      interval: 30s
-      scrapeTimeout: 10s
+      interval: 3s
