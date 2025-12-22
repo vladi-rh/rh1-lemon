@@ -299,9 +299,18 @@ def stream_chat(message, _history):
                         if isinstance(det, dict):
                             metrics.add_detections([det], "output")
 
+                    # User-friendly messages for each detector type
+                    DETECTOR_MESSAGES = {
+                        "hap": "Your message was flagged for containing potentially harmful or inappropriate content.",
+                        "prompt_injection": "Your message appears to contain instructions that try to override the system rules.",
+                        "regex_competitor": "I can only discuss lemons! Other fruits and off-topic subjects are not allowed.",
+                        "language_detection_input": "I can only communicate in English. Please rephrase your message in English.",
+                        "language_detection_output": "I can only answer in English.",
+                    }
+
                     # Check for warnings and determine if we should block
                     should_block = False
-                    block_reason = ""
+                    detected_types = []
 
                     for warning in warnings:
                         warning_type = warning.get("type", "")
@@ -318,20 +327,30 @@ def stream_chat(message, _history):
                                         score = result.get("score", 0)
                                         print(f"[DEBUG] Detector: {detector_id}, Score: {score:.2f}")
 
-                                        # Block on language_detection for OUTPUT (non-English response)
-                                        if detector_id == "language_detection" and direction == "output" and score > 0.8:
+                                        # Block on language_detection for both INPUT and OUTPUT (non-English)
+                                        if detector_id == "language_detection" and score > 0.8:
                                             should_block = True
-                                            block_reason = "non-English response detected"
+                                            # Track with direction to show appropriate message
+                                            lang_key = f"language_detection_{direction}"
+                                            if lang_key not in detected_types:
+                                                detected_types.append(lang_key)
 
                                         # Block on other critical detectors for both input and output
                                         if detector_id in ["hap", "prompt_injection", "regex_competitor"]:
                                             should_block = True
-                                            block_reason = f"{detector_id} detected"
+                                            if detector_id not in detected_types:
+                                                detected_types.append(detector_id)
 
                     # Block if choices is empty with warning OR if critical detector fired
                     if (not choices and warnings) or should_block:
-                        print(f"[DEBUG] Blocking: {block_reason or 'API returned empty choices'}")
-                        yield "I'm sorry I can't help with that. Is there anything else I can help you with?"
+                        print(f"[DEBUG] Blocking due to: {detected_types or 'API returned empty choices'}")
+                        # Build user-friendly message based on detected types
+                        if detected_types:
+                            reasons = [DETECTOR_MESSAGES.get(dt, f"Detection: {dt}") for dt in detected_types]
+                            user_message = " ".join(reasons) + " Is there anything else I can help you with?"
+                        else:
+                            user_message = "I'm sorry, I can't help with that. Is there anything else I can help you with?"
+                        yield user_message
                         return
 
                     # Extract content from delta
