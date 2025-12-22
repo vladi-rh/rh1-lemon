@@ -150,3 +150,21 @@ metadata:
 type: Opaque
 stringData:
   vllm-api-key: ""
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: lemonade-stand
+  labels:
+    app: lemonade-stand
+    app.kubernetes.io/name: lemonade-stand
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: lemonade-stand
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
