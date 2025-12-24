@@ -30,11 +30,19 @@ ORCHESTRATOR_PORT = os.getenv("GUARDRAILS_ORCHESTRATOR_SERVICE_SERVICE_PORT", "8
 VLLM_MODEL = os.getenv("VLLM_MODEL", "llama32")
 VLLM_API_KEY = os.getenv("VLLM_API_KEY", "")
 
-# Build API URL - omit port for standard HTTPS (443) or HTTP (80)
+# Detect if running in-cluster (internal service) vs external (route)
+IS_INTERNAL_SERVICE = ORCHESTRATOR_HOST not in ("localhost", "") and ORCHESTRATOR_PORT not in ("443", "80")
+
+# Build API URL - always use HTTPS (orchestrator requires it), skip TLS verification
 if ORCHESTRATOR_PORT in ("443", "80"):
+    # External route
     API_URL = f"https://{ORCHESTRATOR_HOST}/api/v2/chat/completions-detection"
-else:
+elif IS_INTERNAL_SERVICE:
+    # Internal cluster service - HTTPS with self-signed certs
     API_URL = f"https://{ORCHESTRATOR_HOST}:{ORCHESTRATOR_PORT}/api/v2/chat/completions-detection"
+else:
+    # Local development fallback
+    API_URL = f"http://{ORCHESTRATOR_HOST}:{ORCHESTRATOR_PORT}/api/v2/chat/completions-detection"
 
 # Read system prompt from mounted configmap or use default
 PROMPT_FILE = "/system-prompt/prompt"
@@ -228,29 +236,42 @@ aiohttp_session: aiohttp.ClientSession = None
 async def lifespan(app: FastAPI):
     global aiohttp_session
 
-    # Create SSL context that doesn't verify certificates
+    # Create SSL context that skips TLS verification (for self-signed certs)
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
 
-    # Create aiohttp session with connection pooling and keepalive
-    connector = aiohttp.TCPConnector(
-        limit=200,  # Max connections
-        limit_per_host=100,
-        ssl=ssl_context,
-        keepalive_timeout=30,  # Reuse connections for 30s
-        enable_cleanup_closed=True,
-    )
+    # Configure connection pool based on deployment environment
+    if IS_INTERNAL_SERVICE:
+        # Internal service - longer keepalive, stable connections
+        connector = aiohttp.TCPConnector(
+            limit=200,
+            limit_per_host=100,
+            ssl=ssl_context,
+            keepalive_timeout=30,  # Longer keepalive - internal services are stable
+            enable_cleanup_closed=True,
+        )
+        print(f"[INFO] Using HTTPS with connection pooling (internal service mode)")
+    else:
+        # External route - short keepalive due to HAProxy timeouts
+        connector = aiohttp.TCPConnector(
+            limit=200,
+            limit_per_host=100,
+            ssl=ssl_context,
+            keepalive_timeout=5,  # Short - OpenShift routes close connections quickly
+            enable_cleanup_closed=True,
+        )
+        print(f"[INFO] Using HTTPS with short keepalive (external route mode)")
+
     aiohttp_session = aiohttp.ClientSession(
         connector=connector,
         timeout=aiohttp.ClientTimeout(
             total=120,
-            sock_connect=10,  # 10s to establish connection
+            sock_connect=5,   # 5s to establish connection (internal is fast)
             sock_read=60,     # 60s between chunks (for slow LLM)
         ),
     )
 
-    print(f"[INFO] aiohttp session initialized")
     print(f"[INFO] API URL: {API_URL}")
     print(f"[INFO] Model: {VLLM_MODEL}")
 
@@ -303,7 +324,6 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
     # This reduces load on the orchestrator by catching obvious violations locally
     if check_regex_locally(message):
         await metrics.increment_local_regex_block()
-        print(f"[BLOCKED-LOCAL] Regex match detected locally, skipping orchestrator")
         yield {
             "type": "error",
             "message": DETECTOR_MESSAGES["regex_competitor"] + " Is there anything else I can help you with?"
@@ -326,7 +346,6 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
                 "hap": {},
                 "language_detection": {},
                 "prompt_injection": {}
-                # regex_competitor removed - checked locally above
             },
             "output": {
                 "hap": {},
@@ -414,21 +433,27 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
             async with aiohttp_session.post(API_URL, json=payload, headers=headers) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    print(f"[ERROR] API returned {response.status}: {error_text[:200]}")
+                    print(f"[ERROR] API returned {response.status}: {error_text[:500]}")
                     yield {"type": "error", "message": f"API error: {response.status}"}
                     return
 
                 full_response = ""
                 buffer = ""
                 total_bytes = 0
+                chunk_count = 0
 
-                # Process SSE stream in real-time
-                async for chunk in response.content.iter_any():
-                    if not chunk:
-                        continue
+                # Process SSE stream in real-time using readline for better SSE handling
+                while True:
+                    try:
+                        line_bytes = await response.content.readline()
+                        if not line_bytes:
+                            break
 
-                    total_bytes += len(chunk)
-                    buffer += chunk.decode("utf-8", errors="ignore")
+                        chunk_count += 1
+                        total_bytes += len(line_bytes)
+                        buffer += line_bytes.decode("utf-8", errors="ignore")
+                    except Exception:
+                        break
 
                     # Process complete lines
                     while "\n" in buffer:
@@ -450,37 +475,30 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
                     yield {"type": "done"}
                     return
 
-                # Empty response - retry if attempts remaining
+                # Empty response - likely stale connection, retry immediately
                 if attempt < max_retries:
-                    delay = base_delay * (2 ** attempt)  # Exponential backoff
-                    print(f"[RETRY] Empty response (0 bytes), attempt {attempt + 1}/{max_retries + 1}, waiting {delay:.1f}s")
-                    await asyncio.sleep(delay)
+                    # No delay on first retry - stale connection, next one should be fresh
+                    delay = 0 if attempt == 0 else base_delay * (2 ** (attempt - 1))
+                    if delay > 0:
+                        await asyncio.sleep(delay)
                     continue
                 else:
-                    print(f"[WARN] Empty response after {max_retries + 1} attempts")
                     yield {"type": "error", "message": "No response received. Please try again."}
                     return
 
         except aiohttp.ClientError as e:
             if attempt < max_retries:
-                delay = base_delay * (2 ** attempt)
-                print(f"[RETRY] Connection error: {e}, attempt {attempt + 1}/{max_retries + 1}, waiting {delay:.1f}s")
-                await asyncio.sleep(delay)
+                await asyncio.sleep(base_delay * (2 ** attempt))
                 continue
-            print(f"[ERROR] aiohttp error after retries: {e}")
             yield {"type": "error", "message": f"Connection error: {str(e)}"}
             return
         except asyncio.TimeoutError:
             if attempt < max_retries:
-                delay = base_delay * (2 ** attempt)
-                print(f"[RETRY] Timeout, attempt {attempt + 1}/{max_retries + 1}, waiting {delay:.1f}s")
-                await asyncio.sleep(delay)
+                await asyncio.sleep(base_delay * (2 ** attempt))
                 continue
-            print(f"[ERROR] Request timed out after retries")
             yield {"type": "error", "message": "Request timed out"}
             return
         except Exception as e:
-            print(f"[ERROR] Unexpected error: {e}")
             yield {"type": "error", "message": f"Error: {str(e)}"}
             return
 

@@ -127,6 +127,9 @@ metadata:
     app: lemonade-stand
     app.kubernetes.io/name: lemonade-stand
     app.kubernetes.io/component: frontend
+  annotations:
+    # Increase timeout for LLM streaming responses (default is 30s)
+    haproxy.router.openshift.io/timeout: 120s
 spec:
   to:
     kind: Service
