@@ -231,7 +231,7 @@
             padding: 4px;
         }
 
-        .input-wrapper input {
+        .input-wrapper textarea {
             flex: 1;
             padding: 12px 16px;
             background: transparent;
@@ -239,9 +239,15 @@
             font-size: 15px;
             color: #fff;
             outline: none;
+            resize: none;
+            min-height: 24px;
+            max-height: 120px;
+            line-height: 1.4;
+            font-family: inherit;
+            overflow-y: auto;
         }
 
-        .input-wrapper input::placeholder {
+        .input-wrapper textarea::placeholder {
             color: #6b7280;
         }
 
@@ -330,6 +336,10 @@
                 padding: 16px 12px;
             }
 
+            .messages {
+                scroll-behavior: auto; /* Disable smooth scroll on mobile for snappier feel */
+            }
+
             .header {
                 padding: 14px 16px;
                 font-size: 18px;
@@ -382,7 +392,7 @@
                 padding: 12px;
             }
 
-            .input-wrapper input {
+            .input-wrapper textarea {
                 padding: 10px 12px;
                 font-size: 16px; /* Prevents iOS zoom on focus */
             }
@@ -477,7 +487,7 @@
             <div class="messages" id="messages">
                 <div class="examples-container" id="examples-container">
                     <div class="examples">
-                        <button class="example-btn" onclick="sendExample('Tell me about lemons')">Tell me about lemons</button>
+                        <button class="example-btn" onclick="sendExample('Why are lemons sour?')">Why are lemons sour?</button>
                         <button class="example-btn" onclick="sendExample('What are the health benefits of lemons?')">What are the health benefits of lemons?</button>
                         <button class="example-btn" onclick="sendExample('What type of lemon should I use to make a lemon cake?')">What type of lemon should I use to make a lemon cake?</button>
                     </div>
@@ -485,14 +495,14 @@
             </div>
             <div class="input-area">
                 <div class="input-wrapper">
-                    <input
-                        type="text"
+                    <textarea
                         id="message-input"
                         placeholder="Type a message..."
                         maxlength="100"
-                        oninput="updateCharCount()"
-                        onkeypress="if(event.key === 'Enter' && !event.shiftKey) sendMessage()"
-                    >
+                        rows="1"
+                        oninput="updateCharCount(); autoResize(this);"
+                        onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"
+                    ></textarea>
                     <button id="send-btn" onclick="sendMessage()">
                         <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                     </button>
@@ -556,6 +566,11 @@
             }
         }
 
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        }
+
         function addMessage(content, type) {
             // Hide examples on first message
             if (examplesContainer) {
@@ -581,6 +596,7 @@
 
             addMessage(message, 'user');
             messageInput.value = '';
+            messageInput.style.height = 'auto'; // Reset height
             updateCharCount();
             showStopButton();
 
@@ -605,8 +621,16 @@
                 return div.innerHTML.replace(/\n/g, '<br>');
             }
 
-            // Calculate delay - starts at 20ms, gradually speeds up, minimum 2ms
+            // Calculate delay - faster on mobile for snappier feel
+            const isMobile = window.innerWidth <= 768;
             function getDelay() {
+                if (isMobile) {
+                    // Faster typing on mobile
+                    const len = displayedContent.length;
+                    if (len < 10) return 8;
+                    return 1;
+                }
+                // Desktop: gradual speed up
                 const len = displayedContent.length;
                 if (len < 20) return 20;      // First 20 chars: slow
                 if (len < 50) return 12;      // Next 30 chars: medium
