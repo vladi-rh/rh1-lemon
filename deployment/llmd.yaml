@@ -43,7 +43,7 @@ spec:
   model:
     name: llama32
     uri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-3b-instruct
-  replicas: 48 # change replicas as needed
+  replicas: 47 # change replicas as needed
   router:
     gateway: {}
     route: {}

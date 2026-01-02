@@ -27,7 +27,7 @@ metadata:
     app.kubernetes.io/name: lemonade-stand
     app.kubernetes.io/component: frontend
 spec:
-  replicas: 1
+  replicas: 20
   selector:
     matchLabels:
       app: lemonade-stand
@@ -63,12 +63,12 @@ spec:
               mountPath: /system-prompt
               readOnly: true
           resources:
-            requests:
-              memory: "256Mi"
-              cpu: "200m"
             limits:
-              memory: "1Gi"
-              cpu: "1000m"
+              cpu: '2'
+              memory: 2Gi
+            requests:
+              cpu: '1'
+              memory: 1Gi
           livenessProbe:
             httpGet:
               path: /health
@@ -128,8 +128,11 @@ metadata:
     app.kubernetes.io/name: lemonade-stand
     app.kubernetes.io/component: frontend
   annotations:
-    # Increase timeout for LLM streaming responses (default is 30s)
-    haproxy.router.openshift.io/timeout: 120s
+    haproxy.router.openshift.io/balance: roundrobin
+    haproxy.router.openshift.io/disable_cookies: 'true'
+    haproxy.router.openshift.io/rate-limit-connections: 'false'
+    haproxy.router.openshift.io/timeout: 300s
+    haproxy.router.openshift.io/timeout-tunnel: 300s
 spec:
   to:
     kind: Service

@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/name: chunker-service
     app.kubernetes.io/component: chunker
 spec:
-  replicas: 1
+  replicas: 30
   selector:
     matchLabels:
       app: chunker-service
@@ -26,12 +26,12 @@ spec:
           name: grpc
           protocol: TCP
         resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "1000m"
+            limits:
+              cpu: '3'
+              memory: 4Gi
+            requests:
+              cpu: '2'
+              memory: 2Gi
 ---
 apiVersion: v1
 kind: Service

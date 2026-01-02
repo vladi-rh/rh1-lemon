@@ -127,29 +127,29 @@ const scenarios = {
         tags: { scenario: 'guardrails' },
     },
     // Scalable test - use VUS env var to set target (1000-6000)
-    // Gradual ramp-up in 4 stages to target VUS
+    // Gradual ramp-up in 4 stages to target VUS (~14 minutes total)
     scale: {
         executor: 'ramping-vus',
         startVUs: 0,
         stages: [
             // Stage 1: Ramp to 25% of target
-            { duration: '2m', target: Math.floor(TARGET_VUS * 0.25) },
+            { duration: '1m', target: Math.floor(TARGET_VUS * 0.25) },
             // Hold at 25%
-            { duration: '3m', target: Math.floor(TARGET_VUS * 0.25) },
+            { duration: '2m', target: Math.floor(TARGET_VUS * 0.25) },
             // Stage 2: Ramp to 50% of target
-            { duration: '2m', target: Math.floor(TARGET_VUS * 0.50) },
+            { duration: '1m', target: Math.floor(TARGET_VUS * 0.50) },
             // Hold at 50%
-            { duration: '3m', target: Math.floor(TARGET_VUS * 0.50) },
+            { duration: '2m', target: Math.floor(TARGET_VUS * 0.50) },
             // Stage 3: Ramp to 75% of target
-            { duration: '2m', target: Math.floor(TARGET_VUS * 0.75) },
+            { duration: '1m', target: Math.floor(TARGET_VUS * 0.75) },
             // Hold at 75%
-            { duration: '3m', target: Math.floor(TARGET_VUS * 0.75) },
+            { duration: '2m', target: Math.floor(TARGET_VUS * 0.75) },
             // Stage 4: Ramp to 100% of target
-            { duration: '2m', target: TARGET_VUS },
+            { duration: '1m', target: TARGET_VUS },
             // Hold at 100%
-            { duration: '5m', target: TARGET_VUS },
+            { duration: '3m', target: TARGET_VUS },
             // Ramp down
-            { duration: '2m', target: 0 },
+            { duration: '1m', target: 0 },
         ],
         tags: { scenario: 'scale' },
     },

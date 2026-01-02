@@ -13,4 +13,13 @@ spec:
   orchestratorConfig: fms-orchestr8-config-nlp
   otelExporter:
     otlpProtocol: grpc
-  replicas: 1
+  replicas: 50
+
+      # containers:
+      #   - resources:
+      #       limits:
+      #         cpu: '5'
+      #         memory: 8Gi
+      #       requests:
+      #         cpu: '3'
+      #         memory: 4Gi

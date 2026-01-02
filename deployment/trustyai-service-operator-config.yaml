@@ -20,7 +20,7 @@ data:
   kServeServerless: enabled
   ragas-provider-image: 'registry.redhat.io/rhoai/odh-trustyai-ragas-lls-provider-dsp-rhel9@sha256:c1694891f19be1fe1abd431505549dc02021c389e640e77877bbb7921b42aa5b'
   lmes-detect-device: 'true'
-  guardrails-orchestrator-image: 'quay.io/rh-ee-mmisiura/fms-orchestr8-nlp:path_prefix_4_llmd_v0.1'
+  guardrails-orchestrator-image: 'quay.io/ckavili/fms-guardrails-orchestrator:race-fix'
   garak-provider-image: 'quay.io/trustyai/llama-stack-provider-trustyai-garak:latest'
   lmes-image-pull-policy: Always
   trustyaiOperatorImage: 'quay.io/trustyai/trustyai-service-operator:f0db9fbede82ee354a3e5a53d2bcc313b111a234'

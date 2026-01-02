@@ -171,3 +171,6 @@ oc apply -f ../gradio-lemonade-stand-app/openshift-deployment.yaml -n lemonade-s
 | `language-detector.yaml` | Language detection detector |
 | `fms-orchestr8-config-nlp.yaml` | Orchestrator configuration |
 | `guardrails-orchestrator.yaml` | Guardrails Orchestrator CR |
+
+
+Note: inference gateway: 20 replicas
