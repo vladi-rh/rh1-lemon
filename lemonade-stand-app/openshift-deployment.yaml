@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
         - name: lemonade-stand
-          image: quay.io/ckavili/lemon-fastapi:1.0.3
+          image: quay.io/ckavili/lemon-fastapi:1.0.9
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
