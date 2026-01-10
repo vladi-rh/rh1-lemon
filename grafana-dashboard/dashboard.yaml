@@ -32,7 +32,6 @@
             "fixedColor": "yellow",
             "mode": "palette-classic"
           },
-          "decimals": 1,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -653,7 +652,7 @@
     }
   ],
   "preload": false,
-  "refresh": "auto",
+  "refresh": "5s",
   "schemaVersion": 42,
   "tags": [],
   "templating": {
@@ -667,5 +666,5 @@
   "timezone": "browser",
   "title": "Prometheus Queries for Guardrail Metrics Dashboard",
   "uid": "34d7e0c2-afeb-4939-bbf9-c9b0ad33595c",
-  "version": 15
+  "version": 2
 }

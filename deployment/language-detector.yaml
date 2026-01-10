@@ -56,8 +56,8 @@ metadata:
 spec:
   predictor:
     automountServiceAccountToken: false
-    maxReplicas: 6
-    minReplicas: 6
+    maxReplicas: 1
+    minReplicas: 1
     model:
       modelFormat:
         name: guardrails-detector-huggingface

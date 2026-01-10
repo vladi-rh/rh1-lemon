@@ -71,7 +71,7 @@ MAX_INPUT_CHARS = 100
 
 FRUIT_REGEX_PATTERNS = [
     # English fruits
-    r"\b(?i:oranges?|apples?|cranberr(?:y|ies)|pineapples?|grapes?|strawberr(?:y|ies)|blueberr(?:y|ies)|watermelons?|durians?|cloudberr(?:y|ies)|bananas?|mangoes?|peaches?|pears?|plums?|cherr(?:y|ies)|kiwifruits?|kiwis?|papayas?|avocados?|coconuts?|raspberr(?:y|ies)|blackberr(?:y|ies)|pomegranates?|figs?|dates?|apricots?|nectarines?|tangerines?|clementines?|grapefruits?|lime(?!s)|passionfruits?|dragonfruits?|lychees?|guavas?|persimmons?)\b",
+    r"\b(?i:oranges?|apples?|cranberr(?:y|ies)|pineapples?|grapes?|strawberr(?:y|ies)|blueberr(?:y|ies)|watermelons?|durians?|cloudberr(?:y|ies)|bananas?|mangoes?|peaches?|pears?|plums?|cherr(?:y|ies)|kiwifruits?|kiwis?|papayas?|avocados?|coconuts?|raspberr(?:y|ies)|blackberr(?:y|ies)|pomegranates?|figs?|apricots?|nectarines?|tangerines?|clementines?|grapefruits?|limes?|passionfruits?|dragonfruits?|lychees?|guavas?|persimmons?)\b",
     # Turkish fruits
     r"\b(?i:portakals?|elmalar?|kızılcık(?:lar)?|ananaslar?|üzümler?|çilek(?:ler)?|yaban mersin(?:leri)?|karpuzlar?|durianlar?|bulutot(?:u|ları)?|muzlar?|mango(?:lar)?|şeftaliler?|armutlar?|erikler?|kiraz(?:lar)?|kiviler?|papayalar?|avokadolar?|hindistan cevizi(?:ler)?|ahududular?|böğürtlen(?:ler)?|nar(?:lar)?|incir(?:ler)?|hurmalar?|kayısı(?:lar)?|nektarin(?:ler)?|mandalina(?:lar)?|klementin(?:ler)?|greyfurt(?:lar)?|lime(?:lar)?|passionfruit(?:lar)?|ejder meyvesi(?:ler)?|liçi(?:ler)?|hurma(?:lar)?)\b",
     # Swedish fruits
@@ -81,7 +81,7 @@ FRUIT_REGEX_PATTERNS = [
     # Dutch fruits
     r"\b(?i:sinaasappel(?:en)?|appel(?:s)?|veenbes(?:sen)?|ananas(?:sen)?|druif(?:fen)?|aardbei(?:en)?|blauwe bes(?:sen)?|watermeloen(?:en)?|durian(?:s)?|honingbes(?:sen)?|banaan(?:en)?|mango(?:'s|s)?|perzik(?:ken)?|peer(?:en)?|pruim(?:en)?|kers(?:en)?|kiwi(?:'s|s)?|papaja(?:'s|s)?|avocado(?:'s|s)?|kokosnoot(?:en)?|framboos(?:zen)?|braam(?:men)?|granaatappel(?:en)?|vijg(?:en)?|dadel(?:s|en)?|abrikoos(?:zen)?|nectarine(?:n)?|mandarijn(?:en)?|clementine(?:n)?|grapefruit(?:s|en)?|limoen(?:en)?|passievrucht(?:en)?|draakvrucht(?:en)?|lychee(?:s|'s)?|guave(?:s|n)?|kaki(?:'s|s)?)\b",
     # French fruits
-    r"\b(?i:orange(?:s)?|pomme(?:s)?|canneberge(?:s)?|ananas(?:s)?|raisin(?:s)?|fraise(?:s)?|myrtille(?:s)?|pastèque(?:s)?|durian(?:s)?|airelle(?:s)?|banane(?:s)?|mangue(?:s)?|pêche(?:s)?|poire(?:s)?|prune(?:s)?|cerise(?:s)?|kiwi(?:s)?|papaye(?:s)?|avocat(?:s)?|noix de coco|framboise(?:s)?|mûre(?:s)?|grenade(?:s)?|figue(?:s)?|datte(?:s)?|abricot(?:s)?|nectarine(?:s)?|mandarine(?:s)?|clémentine(?:s)?|pamplemousse(?:s)?|citron vert|fruit de la passion(?:s)?|fruit du dragon(?:s)?|litchi(?:s)?|goyave(?:s)?|kaki(?:s)?)\b",
+    r"\b(?i:orange(?:s)?|pomme(?:s)?|canneberge(?:s)?|ananas(?:s)?|raisin(?:s)?|fraise(?:s)?|myrtille(?:s)?|pastèque(?:s)?|durian(?:s)?|airelle(?:s)?|banane(?:s)?|mangue(?:s)?|pêche(?:s)?|poire(?:s)?|cerise(?:s)?|kiwi(?:s)?|papaye(?:s)?|avocat(?:s)?|noix de coco|framboise(?:s)?|mûre(?:s)?|grenade(?:s)?|figue(?:s)?|datte(?:s)?|abricot(?:s)?|nectarine(?:s)?|mandarine(?:s)?|clémentine(?:s)?|pamplemousse(?:s)?|citron vert|fruit de la passion(?:s)?|fruit du dragon(?:s)?|litchi(?:s)?|goyave(?:s)?|kaki(?:s)?)\b",
     # Spanish fruits
     r"\b(?i:naranja(?:s)?|manzana(?:s)?|arándano(?:s)?|piña(?:s)?|uva(?:s)?|fresa(?:s)?|arándano azul(?:es)?|sandía(?:s)?|durian(?:es)?|mora ártica(?:s)?|plátano(?:s)?|mango(?:s)?|melocotón(?:es)?|pera(?:s)?|ciruela(?:s)?|cereza(?:s)?|kiwi(?:s)?|papaya(?:s)?|aguacate(?:s)?|coco(?:s)?|frambuesa(?:s)?|mora(?:s)?|granada(?:s)?|higo(?:s)?|dátil(?:es)?|albaricoque(?:s)?|nectarina(?:s)?|mandarina(?:s)?|clementina(?:s)?|pomelo(?:s)?|lima(?:s)?|fruta de la pasión(?:es)?|fruta del dragón(?:es)?|lichi(?:s)?|guayaba(?:s)?|caqui(?:s)?)\b",
     # German fruits
@@ -98,8 +98,6 @@ FRUIT_REGEX_PATTERNS = [
     r"\b(?i:橙子|桔子|苹果|蔓越莓|菠萝|葡萄|草莓|蓝莓|西瓜|榴莲|云莓|香蕉|芒果|桃子|梨|李子|樱桃|猕猴桃|木瓜|牛油果|椰子|覆盆子|黑莓|石榴|无花果|枣|杏|油桃|柑橘|柑橘类|柠檬|百香果|火龙果|荔枝|番石榴|柿子)\b",
     # Hindi fruits
     r"\b(?i:संतरा|ऑरेंज|सेब|क्रैनबेरी|अनानास|अंगूर|स्ट्रॉबेरी|ब्लूबेरी|तरबूज|ड्यूरियन|क्लाउडबेरी|केला|मैंगो|आड़ू|नाशपाती|आलूबुखारा|चेरी|कीवी|पपीता|एवोकाडो|नारियल|रास्पबेरी|ब्लैकबेरी|अनार|अंजीर|खजूर|खुबानी|नेकटेरिन|मंडारिन|क्लेमेंटाइन|ग्रेपफ्रूट|नींबू|पासनफ्रूट|ड्रैगन फ्रूट|लीची|अमरूद|तेंदू)\b",
-    # Instruction/rule keywords
-    r"\b(?i:instruction|instructions|rule|rules|prompt|policy|policies|system message|system messages|guideline|guidelines|command|commands|directive|directives)\b",
 ]
 
 PROMPT_INJECTION_PATTERNS = [
@@ -110,7 +108,6 @@ PROMPT_INJECTION_PATTERNS = [
     r"(?i)\b(do not|don't)\s+(say|write|mention|use)\b",
     r"(?i)\byou (now )?understand\b.*\b(turkish|swedish|german|french|finnish|all languages)\b",
     r"(?i)\b(new system prompt|override (the )?system|ignore safety)\b",
-    r"(?i)^\s*(rule|instruction|policy|system)\s*:",
     r"(?i)\bregardless (of|regarding)\b.*\b(rules?|policy|policies|instructions?)\b",
     r"(?i)\b(even if|regardless)\b.*\b(violates?|contradicts?)\b.*\b(rules?|policy|policies|safety)\b",
     r"(?i)\b(system|developer)\s+(prompt|message|instructions?)\b",

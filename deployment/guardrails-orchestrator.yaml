@@ -8,12 +8,11 @@ metadata:
     - trustyai.opendatahub.io/gorch-finalizer
 spec:
   enableBuiltInDetectors: true
-  enableGuardrailsGateway: true
-  guardrailsGatewayConfig: fms-orchestr8-config-gateway
+  enableGuardrailsGateway: false
   orchestratorConfig: fms-orchestr8-config-nlp
   otelExporter:
     otlpProtocol: grpc
-  replicas: 50
+  replicas: 1
 
       # containers:
       #   - resources:

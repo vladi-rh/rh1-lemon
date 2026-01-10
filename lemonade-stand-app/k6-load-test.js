@@ -715,8 +715,15 @@ export default function() {
         console.log(`[${type}] Status: ${response.status}, Time: ${totalTime}ms, Chunks: ${chunks}, Content: ${content.length} chars, Blocked: ${isBlocked}`);
     }
 
-    // Think time between requests (1-3 seconds for higher throughput)
-    sleep(Math.random() * 2 + 1);
+    // Think time between requests
+    // REALISTIC=true: 20-40s (avg 30s) - simulates real user behavior
+    // REALISTIC=false: 1-3s (avg 2s) - stress test mode
+    const realistic = __ENV.REALISTIC === 'true';
+    if (realistic) {
+        sleep(Math.random() * 20 + 20);  // 20-40 seconds (realistic user)
+    } else {
+        sleep(Math.random() * 2 + 1);    // 1-3 seconds (stress test)
+    }
 }
 
 // Health check
@@ -745,10 +752,12 @@ export function metricsCheck() {
 
 // Setup
 export function setup() {
+    const realistic = __ENV.REALISTIC === 'true';
     console.log(`\n========================================`);
     console.log(`k6 Load Test - Lemonade Stand API`);
     console.log(`Target: ${BASE_URL}`);
     console.log(`Scenario: ${SCENARIO}`);
+    console.log(`Mode: ${realistic ? 'REALISTIC (20-40s think time)' : 'STRESS TEST (1-3s think time)'}`);
     if (SCENARIO === 'scale') {
         console.log(`Target VUs: ${TARGET_VUS}`);
         console.log(`Stages: 0 -> ${Math.floor(TARGET_VUS * 0.25)} -> ${Math.floor(TARGET_VUS * 0.50)} -> ${Math.floor(TARGET_VUS * 0.75)} -> ${TARGET_VUS}`);
