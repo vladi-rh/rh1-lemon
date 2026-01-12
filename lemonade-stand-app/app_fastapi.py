@@ -535,7 +535,7 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
 
                     # Check if response was truncated due to token limit
                     if last_finish_reason == "length":
-                        truncation_msg = "\n\n🍋 To keep the lemonade flowing for everyone, we've limited this response. Try asking a shorter, more focused question!"
+                        truncation_msg = "\n\n_🍋 To keep the lemonade flowing for everyone, we've limited this response. Try asking a shorter, more focused question!_"
                         yield {"type": "chunk", "content": truncation_msg}
                         print(f"[DEBUG] Response truncated (finish_reason=length), appended truncation message")
 
