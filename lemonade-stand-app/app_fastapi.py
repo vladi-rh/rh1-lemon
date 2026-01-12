@@ -382,20 +382,20 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
     if VLLM_API_KEY:
         headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
 
-    async def parse_sse_line(line: str) -> tuple[str | None, bool, str | None, str | None]:
+    async def parse_sse_line(line: str) -> tuple[str | None, bool, str | None, str | None, str | None]:
         """
-        Parse an SSE line and return (content, should_block, block_message, detector_type).
-        Returns (None, False, None, None) for non-content lines.
+        Parse an SSE line and return (content, should_block, block_message, detector_type, finish_reason).
+        Returns (None, False, None, None, None) for non-content lines.
         """
         line = line.strip()
         if not line or line == "data: [DONE]" or not line.startswith("data: "):
-            return None, False, None, None
+            return None, False, None, None, None
 
         try:
             chunk_data = json.loads(line[6:])
         except json.JSONDecodeError:
             print(f"[DEBUG] Failed to parse SSE line: {line[:200]}")
-            return None, False, None, None
+            return None, False, None, None, None
 
         warnings_list = chunk_data.get("warnings", [])
         detections = chunk_data.get("detections", {})
@@ -453,17 +453,20 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
                 detector_class = "hap"
             else:
                 detector_class = "error"
-            return None, True, block_msg, detector_class
+            return None, True, block_msg, detector_class, None
 
-        # Extract content
+        # Extract content and finish_reason
+        finish_reason = None
         if choices:
-            delta = choices[0].get("delta", {})
+            choice = choices[0]
+            finish_reason = choice.get("finish_reason")
+            delta = choice.get("delta", {})
             content = delta.get("content", "")
             if content:
                 print(f"[DEBUG] Chunk content: {repr(content)}")
-                return content, False, None, None
+                return content, False, None, None, finish_reason
 
-        return None, False, None, None
+        return None, False, None, None, finish_reason
 
     max_retries = 2
     base_delay = 0.1  # 100ms initial delay, doubles each retry
@@ -483,6 +486,7 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
                 buffer = ""
                 total_bytes = 0
                 chunk_count = 0
+                last_finish_reason = None
 
                 # Process SSE stream in real-time using readline for better SSE handling
                 while True:
@@ -500,11 +504,16 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
                     # Process complete lines
                     while "\n" in buffer:
                         line, buffer = buffer.split("\n", 1)
-                        content, should_block, block_msg, detector_type = await parse_sse_line(line)
+                        content, should_block, block_msg, detector_type, finish_reason = await parse_sse_line(line)
 
                         if should_block:
                             yield {"type": "error", "message": block_msg, "detector_type": detector_type}
                             return
+
+                        # Track finish_reason
+                        if finish_reason:
+                            last_finish_reason = finish_reason
+                            print(f"[DEBUG] finish_reason: {finish_reason}")
 
                         if content:
                             # Skip duplicate content (upstream orchestrator sometimes sends overlapping chunks)
@@ -522,6 +531,14 @@ async def process_chat(message: str) -> AsyncGenerator[dict, None]:
                 if full_response:
                     print(f"[DEBUG] Stream completed successfully")
                     print(f"[DEBUG] Full response length: {len(full_response)} chars")
+                    print(f"[DEBUG] Final finish_reason: {last_finish_reason}")
+
+                    # Check if response was truncated due to token limit
+                    if last_finish_reason == "length":
+                        truncation_msg = "\n\n🍋 To keep the lemonade flowing for everyone, we've limited this response. Try asking a shorter, more focused question!"
+                        yield {"type": "chunk", "content": truncation_msg}
+                        print(f"[DEBUG] Response truncated (finish_reason=length), appended truncation message")
+
                     yield {"type": "done"}
                     return
 
