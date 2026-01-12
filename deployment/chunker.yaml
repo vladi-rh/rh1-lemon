@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/name: chunker-service
     app.kubernetes.io/component: chunker
 spec:
-  replicas: 30
+  replicas: 5
   selector:
     matchLabels:
       app: chunker-service
