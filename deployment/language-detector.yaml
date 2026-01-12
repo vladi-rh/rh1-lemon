@@ -79,4 +79,4 @@ spec:
       - effect: NoSchedule
         key: nvidia.com/gpu
         operator: Equal
-        value: NVIDIA-H200-PRIVATE
+        value: Tesla-T4-SHARED
