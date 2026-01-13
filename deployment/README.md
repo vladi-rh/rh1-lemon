@@ -4,6 +4,11 @@ This guide walks you through deploying the Guardrails Orchestrator with LLM-D an
 
 ## Prerequisites
 
+### 0. NVidia GPU Operator
+
+Successfully tested with NVidia GPU operator v25.10.0 (`gpu-operator-certified.v25.10.0`) with manual approval. 
+The llama32 pod was Crash-looping with the newest operator (v25.10.1), therefore decision to pin the operator to the previous version.
+
 ### 1. Set TrustyAI ConfigMap to Unmanaged
 
 Add the following annotation to the `trustyai-service-operator-config` ConfigMap in the `redhat-ods-applications` namespace:
