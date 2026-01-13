@@ -141,7 +141,7 @@ oc apply -f ../lemonade-stand-app/openshift-deployment.yaml -n lemonade-stand
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
 │  ┌─────────────────┐      ┌──────────────────────────────────────────┐  │
-│  │  Gradio Frontend│─────▶│     Guardrails Orchestrator              │  │
+│  │  Gradio Frontend│────▶│     Guardrails Orchestrator              │  │
 │  └─────────────────┘      └──────────────────────────────────────────┘  │
 │                                        │                                │
 │                    ┌───────────────────┼───────────────────┐            │
@@ -163,6 +163,8 @@ oc apply -f ../lemonade-stand-app/openshift-deployment.yaml -n lemonade-stand
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+NOTE: Guardrails Orchestrator pod has a sidecar container with Regex detector, injected by Trusty Operator.
 
 ## Files Reference
 
